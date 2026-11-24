@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나의 예약 상세 내역</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 700px; margin: 0 auto; padding: 15px; background-color: #f0f2f5; }
+        .header { background: #004b87; color: white; padding: 16px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .header h2 { margin: 0; font-size: 1.2rem; }
+        .back-link { color: white; text-decoration: none; font-size: 0.9rem; font-weight: bold; background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 4px; }
+        
+        .history-card { background: white; border: 1px solid #e2e8f0; padding: 15px; margin-bottom: 12px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .history-top { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+        .timestamp { color: #6c757d; font-size: 0.85rem; }
+        .action-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; color: white; }
+        .action-예약완료 { background-color: #198754; }
+        .action-예약취소 { background-color: #dc3545; }
+        .action-대기등록 { background-color: #fd7e14; }
+        .action-대기취소 { background-color: #6c757d; }
+        .action-자동예약전환 { background-color: #0d6efd; }
+        
+        .history-body { font-size: 0.95rem; color: #212529; line-height: 1.5; }
+        .empty-state { text-align: center; padding: 40px 20px; color: #6c757d; background: white; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>나의 이용 내역 ({{ student_id }})</h2>
+        <a href="/" class="back-link">메인으로 돌아가기</a>
+    </div>
+
+    {% if history_records %}
+        {% for record in history_records %}
+        <div class="history-card">
+            <div class="history-top">
+                <span class="timestamp">처리일시: {{ record.created_at }}</span>
+                <span class="action-badge action-{{ record.action[:6] }}">{{ record.action }}</span>
+            </div>
+            <div class="history-body">
+                <strong>{{ record.campus }}</strong><br>
+                📍 {{ record.region }} ({{ record.direction }}) - <strong>{{ record.time_slot }} 출발</strong><br>
+                {% if record.seat_number %}
+                💺 배정 좌석: <strong>{{ record.seat_number }}번</strong>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            아직 예약 및 취소 등 활동 내역이 없습니다.
+        </div>
+    {% endif %}
+</body>
+</html>

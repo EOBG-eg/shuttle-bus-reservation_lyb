@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>경동대학교 셔틀버스 예약</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 15px; background-color: #f0f2f5; }
+        .header { background: #004b87; color: white; padding: 16px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .header h2 { margin: 0; font-size: 1.2rem; }
+        .login-box { display: flex; gap: 6px; }
+        .login-box input { padding: 6px 10px; border: none; border-radius: 4px; font-size: 0.9rem; width: 110px; }
+        .login-box button { padding: 6px 12px; background: #ffc107; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .status-box { background: white; border: 1px solid #dee2e6; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        
+        /* [UI 로직] 모바일 최적화를 위한 탭 전환 방식 적용 (아코디언 방식 폐기) */
+        .tab-container { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 14px; background: #e2e8f0; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; color: #495057; cursor: pointer; transition: all 0.2s; }
+        .tab-btn.active { background: #004b87; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .tab-btn-fav { background: #fff3cd; color: #856404; }
+        .tab-btn-fav.active { background: #ffc107; color: #212529; }
+
+        .campus-pane { display: none; background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .campus-pane.active { display: block; }
+        
+        .region-section { margin-bottom: 25px; }
+        .region-title { font-size: 1.15rem; color: #212529; font-weight: bold; margin-bottom: 10px; background: #e9ecef; padding: 8px 12px; border-radius: 6px; }
+        
+        .fav-btn { background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 0; }
+        .shuttle-card { background: #f8f9fa; border: 1px solid #e2e8f0; padding: 10px 15px; margin-bottom: 6px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+        .past-shuttle { background-color: #f1f3f5; color: #adb5bd; border-color: #dee2e6; }
+        
+        .btn { padding: 6px 12px; border-radius: 5px; font-size: 0.85rem; font-weight: bold; border: none; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-warning { background: #fd7e14; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn:disabled, .btn-disabled { background: #ccc; cursor: not-allowed; color: white; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>경동대학교 셔틀버스</h2>
+        {% if not student_id %}
+            <!-- 기본 로그인(세션 발급) 폼 -->
+            <form method="POST" class="login-box">
+                <input type="text" name="student_id" placeholder="학번 입력" required>
+                <button type="submit">로그인</button>
+            </form>
+        {% else %}
+            <div>
+                <span>{{ student_id }}님</span>
+                <!-- [경각심 부여] 1회라도 노쇼 누적 시 상단에 붉은색 뱃지 노출 -->
+                {% if user_status and user_status.noshow_count > 0 %}
+                    <span style="background-color: #dc3545; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin-left: 5px; font-weight: bold;">노쇼 {{ user_status.noshow_count }}회</span>
+                {% endif %}
+                
+                {% if student_id == 'admin' %}
+                    <a href="/admin" style="color: #0dcaf0; margin-left: 10px; font-size: 0.85rem; text-decoration: underline; font-weight: bold;">관리자</a>
+                {% endif %}
+                <a href="/history" style="color: #ffeb3b; margin-left: 10px; font-size: 0.85rem; text-decoration: underline;">내역조회</a>
+                <a href="/logout" style="color: #ffd2d2; margin-left: 10px; font-size: 0.85rem; text-decoration: none;">로그아웃</a>
+            </div>
+        {% endif %}
+    </div>
+
+    {% if student_id %}
+        <!-- [UI 로직 1: 패널티 배너 렌더링] 백엔드에서 restriction_info가 전달되면 제재 사실과 잔여 시간 고지 -->
+        {% if restriction_info %}
+            <div style="background-color: #f8d7da; color: #842029; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #f5c2c7;">
+                <h3 style="margin-top: 0; margin-bottom: 5px;">🚫 셔틀버스 이용 정지</h3>
+                <p style="margin: 0; font-size: 0.95rem;">노쇼 3회 누적으로 인해 셔틀버스 예약이 제한되었습니다.</p>
+                <p style="margin: 5px 0 0 0; font-size: 0.95rem;">정지 해제 일시: <strong>{{ restriction_info.date }}</strong> (남은 시간: <strong style="color: #dc3545;">{{ restriction_info.left }}</strong>)</p>
+            </div>
+        {% endif %}
+
+        <!-- [UI 로직 2: 나의 상태 정보 렌더링] -->
+        <div class="status-box">
+            <strong>내 예약 상태: </strong>
+            {% if my_reservation %}
+                <span style="color: #0d6efd;">[{{ my_reservation.campus }}] {{ my_reservation.region }}({{ my_reservation.direction }}) {{ my_reservation.time_slot }} 출발 - {{ my_reservation.seat_number }}번 좌석</span>
+                <form action="/cancel" method="POST" style="display:inline; margin-left: 10px;">
+                    <input type="hidden" name="type" value="reservation">
+                    <button type="submit" class="btn btn-danger">취소</button>
+                </form>
+            {% elif my_waitlist %}
+                <span style="color: #fd7e14;">[{{ my_waitlist.campus }}] {{ my_waitlist.region }}({{ my_waitlist.direction }}) {{ my_waitlist.time_slot }} 출발 대기 (순번 {{ my_waitlist.rank }}번)</span>
+                <form action="/cancel" method="POST" style="display:inline; margin-left: 10px;">
+                    <input type="hidden" name="type" value="waitlist">
+                    <button type="submit" class="btn btn-danger">대기 취소</button>
+                </form>
+            {% else %}
+                <span style="color: #198754;">현재 등록된 예약이 없습니다.</span>
+            {% endif %}
+        </div>
+
+        <div class="tab-container">
+            <button class="tab-btn tab-btn-fav active" onclick="switchCampus(event, 'campus-favorites')">⭐ 즐겨찾기</button>
+            {% for campus in shuttles_dict.keys() %}
+                <button class="tab-btn" onclick="switchCampus(event, 'campus-{{ loop.index }}')">🏫 {{ campus }}</button>
+            {% endfor %}
+        </div>
+
+        <!-- [UI 로직 3: 전체 캠퍼스 탭 콘텐츠 렌더링] -->
+        {% for campus, regions in shuttles_dict.items() %}
+            <div id="campus-{{ loop.index }}" class="campus-pane">
+                {% for region, directions in regions.items() %}
+                    <div class="region-section">
+                        <div class="region-title">📍 {{ region }} 노선</div>
+                        {% for direction in ['등교', '하교'] %}
+                            {% if directions[direction] %}
+                                <div style="font-size: 1rem; color: #495057; margin: 10px 0; font-weight: bold;">🚌 {{ direction }}</div>
+                                {% for shuttle in directions[direction] %}
+                                <div class="shuttle-card {% if shuttle.is_past %}past-shuttle{% endif %}">
+                                    <div>
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <!-- 즐겨찾기 개별 노선 토글 버튼 -->
+                                            <form action="/favorite/toggle" method="POST" style="margin:0;">
+                                                <input type="hidden" name="campus" value="{{ shuttle.campus }}">
+                                                <input type="hidden" name="region" value="{{ shuttle.region }}">
+                                                <input type="hidden" name="direction" value="{{ shuttle.direction }}">
+                                                <input type="hidden" name="time_slot" value="{{ shuttle.time_slot }}">
+                                                <button type="submit" class="fav-btn" title="즐겨찾기 토글" style="{% if not shuttle.is_favorite %}opacity: 0.2;{% endif %}">⭐</button>
+                                            </form>
+                                            <!-- 실시간 지연 시간 표시 로직 -->
+                                            {% if shuttle.delay_minutes > 0 %}
+                                                <strong style="text-decoration: line-through; color: #6c757d;">{{ shuttle.time_slot }}</strong>
+                                                <strong style="color: #dc3545;">🕒 {{ shuttle.delayed_time }} ({{ shuttle.delay_minutes }}분 지연)</strong>
+                                            {% else %}
+                                                <strong>{{ shuttle.time_slot }} 출발</strong>
+                                            {% endif %}
+                                        </div>
+                                        <span style="margin-left: 28px; font-size: 0.9rem; display:block; margin-top:3px;">
+                                            {% if shuttle.is_past %}운행 종료{% else %}잔여 <span style="color: #0d6efd; font-weight: bold;">{{ shuttle.remaining }}</span> / {{ shuttle.capacity }}석{% endif %}
+                                        </span>
+                                    </div>
+                                    
+                                    <!-- [UI 로직 4: 상태 기반 조건부 예약 버튼 렌더링] -->
+                                    <div>
+                                        <!-- 1순위: 정지 상태 시 회색 비활성화 버튼 출력 -->
+                                        {% if restriction_info %}
+                                            <button class="btn btn-disabled" onclick="alert('이용 정지 상태에서는 예약할 수 없습니다.'); return false;">이용 정지</button>
+                                        
+                                        <!-- 2순위: 출발 이전 버스 판별 -->
+                                        {% elif not shuttle.is_past %}
+                                            
+                                            <!-- 3순위: 만석 여부 판별 -->
+                                            {% if shuttle.remaining > 0 %}
+                                                <!-- 잔여 좌석 존재: 좌석 선택 매핑 도면 호출 -->
+                                                <a href="/seat?campus={{ shuttle.campus }}&region={{ shuttle.region }}&direction={{ shuttle.direction }}&time_slot={{ shuttle.time_slot }}" class="btn {% if my_reservation or my_waitlist %}btn-disabled{% else %}btn-primary{% endif %}" {% if my_reservation or my_waitlist %}onclick="return false;"{% endif %}>좌석 선택</a>
+                                            {% else %}
+                                                <!-- 만석: 버튼 형태를 변경하여 '대기 등록(Waitlist)' 액션으로 POST 요청 전송 -->
+                                                <form action="/reserve" method="POST" style="margin:0;">
+                                                    <input type="hidden" name="campus" value="{{ shuttle.campus }}">
+                                                    <input type="hidden" name="region" value="{{ shuttle.region }}">
+                                                    <input type="hidden" name="direction" value="{{ shuttle.direction }}">
+                                                    <input type="hidden" name="time_slot" value="{{ shuttle.time_slot }}">
+                                                    <button type="submit" name="action" value="waitlist" class="btn btn-warning" {% if my_reservation or my_waitlist %}disabled{% endif %}>대기 등록</button>
+                                                </form>
+                                            {% endif %}
+                                            
+                                        <!-- 마감된 스케줄 (최하위 우선순위) -->
+                                        {% else %}
+                                            <button class="btn" disabled>마감</button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <script>
+        // 탭(Tab) 전환을 위한 간단한 JavaScript 로직
+        function switchCampus(event, campusId) {
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            const panes = document.querySelectorAll('.campus-pane');
+            panes.forEach(pane => pane.classList.remove('active'));
+
+            event.currentTarget.classList.add('active');
+            document.getElementById(campusId).classList.add('active');
+        }
+    </script>
+</body>
+</html>

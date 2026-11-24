@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 - 셔틀버스 운행 관리</title>
+    <style>
+        :root {
+            --primary: #dc3545;
+            --primary-dark: #b91c1c;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            max-width: 900px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background-color: var(--bg-color); 
+            color: var(--text-main);
+            line-height: 1.5;
+        }
+
+        .header { 
+            background: linear-gradient(135deg, #991b1b, var(--primary)); 
+            color: white; 
+            padding: 20px 24px; 
+            border-radius: 16px; 
+            margin-bottom: 20px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            box-shadow: 0 10px 15px -3px rgba(220, 53, 69, 0.2);
+        }
+        .header h2 { margin: 0; font-size: 1.3rem; font-weight: 700; }
+        .header a { color: #fecaca; text-decoration: none; font-weight: 600; }
+        .header a:hover { color: white; text-decoration: underline; }
+
+        .message { 
+            padding: 14px 18px; 
+            margin-bottom: 20px; 
+            background-color: #d1e7dd; 
+            color: #0f5132; 
+            border-radius: 12px; 
+            font-size: 0.95rem; 
+            font-weight: 600; 
+            border-left: 5px solid #198754;
+        }
+        
+        /* 신규 스케줄 추가 박스 */
+        .add-box { 
+            background: var(--card-bg); 
+            border: 1px solid var(--border); 
+            padding: 20px; 
+            border-radius: 16px; 
+            margin-bottom: 24px; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); 
+        }
+        .add-box h3 { margin-top: 0; color: var(--text-main); font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; }
+        .add-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        .add-form select, .add-form input { 
+            padding: 10px 12px; 
+            border: 1px solid var(--border); 
+            border-radius: 8px; 
+            font-size: 0.95rem; 
+            outline: none;
+            background: #f8fafc;
+        }
+        
+        /* 탭 버튼 스타일 */
+        .tab-container { display: flex; gap: 10px; margin-bottom: 24px; }
+        .tab-btn { 
+            flex: 1; 
+            padding: 14px; 
+            background: #e2e8f0; 
+            border: none; 
+            border-radius: 12px; 
+            font-size: 1.05rem; 
+            font-weight: 700; 
+            color: var(--text-sub); 
+            cursor: pointer; 
+            transition: all 0.2s; 
+        }
+        .tab-btn.active { 
+            background: var(--primary); 
+            color: white; 
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3); 
+        }
+
+        /* 캠퍼스 패널 */
+        .campus-pane { display: none; background: var(--card-bg); border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.04); border: 1px solid var(--border); }
+        .campus-pane.active { display: block; animation: fadeIn 0.3s ease; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .region-section { margin-bottom: 30px; }
+        .region-section:last-child { margin-bottom: 0; }
+        .region-title { 
+            font-size: 1.15rem; 
+            color: var(--text-main); 
+            font-weight: 700; 
+            margin-bottom: 16px; 
+            background: #f1f5f9; 
+            padding: 10px 16px; 
+            border-radius: 10px; 
+            border-left: 4px solid var(--primary);
+        }
+        .direction-title { font-size: 0.95rem; color: var(--text-sub); margin: 16px 0 10px 0; font-weight: 700; text-transform: uppercase; }
+        
+        /* 테이블 스타일 */
+        .table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        th, td { padding: 12px; text-align: center; border-bottom: 1px solid var(--border); }
+        th { background: #f8fafc; color: var(--text-sub); font-size: 0.9rem; font-weight: 700; }
+        .delay-input { width: 65px; padding: 8px; text-align: center; border: 1px solid var(--border); border-radius: 6px; font-weight: 700; background: #f8fafc; }
+        
+        /* 버튼 스타일 */
+        .btn { padding: 8px 14px; border: none; border-radius: 8px; color: white; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; font-size: 0.85rem; transition: opacity 0.2s; }
+        .btn:hover { opacity: 0.9; }
+        .btn-add { background: #2563eb; padding: 10px 18px; }
+        .btn-save { background: #0284c7; }
+        .btn-view { background: #059669; }
+        .btn-delete { background: var(--primary); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>⚙️ 관리자 대시보드 (운행 스케줄 및 현장 통제)</h2>
+        <a href="/">← 메인으로</a>
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="message">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- 1. 신규 스케줄 추가 패널 -->
+    <div class="add-box">
+        <h3>➕ 새로운 운행 일정 추가</h3>
+        <form action="/admin/add_shuttle" method="POST" class="add-form">
+            <select name="campus" required>
+                <option value="메트로폴(양주)">메트로폴(양주)</option>
+                <option value="메디컬(원주문막)">메디컬(원주문막)</option>
+            </select>
+            <select name="region" required>
+                <option value="도봉산역">도봉산역</option>
+                <option value="양주역">양주역</option>
+                <option value="의정부 중앙역">의정부 중앙역</option>
+                <option value="원주 직통">원주 직통</option>
+            </select>
+            <select name="direction" required>
+                <option value="등교">등교</option>
+                <option value="하교">하교</option>
+            </select>
+            <input type="time" name="time_slot" required>
+            <button type="submit" class="btn btn-add">스케줄 등록</button>
+        </form>
+    </div>
+
+    <!-- 캠퍼스 탭 버튼 -->
+    <div class="tab-container">
+        {% for campus in admin_shuttles_dict.keys() %}
+            <button class="tab-btn {% if loop.first %}active{% endif %}" onclick="switchCampus(event, 'admin-campus-{{ loop.index }}')">
+                🏫 {{ campus }}
+            </button>
+        {% endfor %}
+    </div>
+
+    <!-- 캠퍼스별 세부 노선 관리 영역 -->
+    {% for campus, regions in admin_shuttles_dict.items() %}
+        <div id="admin-campus-{{ loop.index }}" class="campus-pane {% if loop.first %}active{% endif %}">
+            {% for region, directions in regions.items() %}
+                <div class="region-section">
+                    <div class="region-title">📍 {{ region }}</div>
+                    {% for direction in ['등교', '하교'] %}
+                        {% if directions[direction] %}
+                            <div class="direction-title">🚌 {{ direction }} 방향</div>
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 20%;">출발 시간</th>
+                                        <th style="width: 40%;">실시간 지연 설정 (분)</th>
+                                        <th style="width: 25%;">명단 및 현장 관리</th>
+                                        <th style="width: 15%;">스케줄 삭제</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for s in directions[direction] %}
+                                    <tr>
+                                        <td><strong style="font-size: 1.05rem;">{{ s.time_slot }}</strong></td>
+                                        <td>
+                                            <form action="/admin/delay" method="POST" style="margin: 0; display:flex; justify-content:center; align-items:center; gap:8px;">
+                                                <input type="hidden" name="campus" value="{{ s.campus }}">
+                                                <input type="hidden" name="region" value="{{ s.region }}">
+                                                <input type="hidden" name="direction" value="{{ s.direction }}">
+                                                <input type="hidden" name="time_slot" value="{{ s.time_slot }}">
+                                                <input type="number" name="delay_minutes" class="delay-input" value="{{ s.delay_minutes }}" min="0">
+                                                <button type="submit" class="btn btn-save">저장</button>
+                                            </form>
+                                        </td>
+                                        <td>
+                                            <a href="/admin/passengers?campus={{ s.campus }}&region={{ s.region }}&direction={{ s.direction }}&time_slot={{ s.time_slot }}" 
+   onclick="window.open(this.href, 'passengerPopup', 'width=600,height=700,location=no,status=no,scrollbars=yes'); return false;"
+   class="btn btn-view">승객 조회</a>
+                                        </td>
+                                        <td>
+                                            <form action="/admin/delete_shuttle" method="POST" style="margin: 0;" onsubmit="return confirm('해당 시간표를 정말 삭제하시겠습니까?\n\n이 버스에 예약된 학생들과 대기자 명단도 모두 취소/삭제됩니다.');">
+                                                <input type="hidden" name="campus" value="{{ s.campus }}">
+                                                <input type="hidden" name="region" value="{{ s.region }}">
+                                                <input type="hidden" name="direction" value="{{ s.direction }}">
+                                                <input type="hidden" name="time_slot" value="{{ s.time_slot }}">
+                                                <button type="submit" class="btn btn-delete">삭제</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endfor %}
+
+    <script>
+        function switchCampus(event, campusId) {
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            const panes = document.querySelectorAll('.campus-pane');
+            panes.forEach(pane => pane.classList.remove('active'));
+
+            event.currentTarget.classList.add('active');
+            document.getElementById(campusId).classList.add('active');
+        }
+    </script>
+</body>
+</html>

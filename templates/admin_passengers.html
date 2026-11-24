@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>탑승객 명단 및 관리</title>
+    <!-- CSS 스타일 선언 생략 -->
+    <style> /* ... */ </style>
+</head>
+<body>
+    <div class="header">
+        <h2>📋 탑승객 명단 및 패널티 관리</h2>
+        <a href="/admin" style="color: white; text-decoration: none; font-weight: bold;">← 관리자 대시보드로</a>
+    </div>
+
+    <!-- 1. 확정 예약자 명단 영역 -->
+    <div class="table-title">💺 좌석 예약자 (현재 {{ reservations|length }}명 / {{ shuttle.capacity }}석)</div>
+    <table class="table">
+        <thead>
+            <tr><th>좌석 번호</th><th>학번 (예약자)</th><th>현장 관리</th></tr>
+        </thead>
+        <tbody>
+            {% if reservations %}
+                {% for r in reservations %}
+                <tr>
+                    <td><strong>{{ r.seat_number }}번</strong></td>
+                    <td>
+                        <!-- 탑승자의 이름(학번)과 함께, 과거 노쇼 이력이 있다면 붉은색 뱃지를 띄워 특별 관제 유도 -->
+                        <span style="color: #0d6efd; font-weight: bold;">{{ r.student_id }}</span>
+                        {% if r.noshow_count > 0 %}
+                            <span style="font-size: 0.8rem; color: #dc3545; background: #f8d7da; padding: 2px 6px; border-radius: 4px; margin-left: 5px;">노쇼 {{ r.noshow_count }}회 누적</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <!-- [현장 통제] 미탑승 시 즉시 노쇼 액션 (예약 무효화 및 대기열 자동 승격 트리거) -->
+                        <form action="/admin/noshow" method="POST" style="margin: 0;" onsubmit="return confirm('{{ r.student_id }} 학생을 정말 노쇼 처리하시겠습니까? (3회 누적 시 7일 정지)');">
+                            <input type="hidden" name="student_id" value="{{ r.student_id }}">
+                            <input type="hidden" name="campus" value="{{ shuttle.campus }}">
+                            <input type="hidden" name="region" value="{{ shuttle.region }}">
+                            <input type="hidden" name="direction" value="{{ shuttle.direction }}">
+                            <input type="hidden" name="time_slot" value="{{ shuttle.time_slot }}">
+                            <button type="submit" class="btn-noshow" style="padding: 6px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">노쇼 처리</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr><td colspan="3" class="empty-row">현재 예약된 좌석이 없습니다.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <!-- 2. 대기열(Waitlist) 명단 영역 -->
+    <div class="table-title">⏳ 대기자 명단 (현재 {{ waitlists|length }}명)</div>
+    <table class="table">
+        <thead>
+            <tr><th>대기 순위</th><th>학번</th><th>대기 등록 시간</th></tr>
+        </thead>
+        <tbody>
+            {% if waitlists %}
+                {% for w in waitlists %}
+                <tr>
+                    <!-- loop.index를 활용하여 큐(Queue)에 적재된 선입선출(FIFO) 순번 시각화 -->
+                    <td><strong>{{ loop.index }}순위</strong></td>
+                    <td>{{ w.student_id }}</td>
+                    <td style="font-size: 0.9rem; color: #6c757d;">{{ w.created_at }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr><td colspan="3" class="empty-row">현재 대기자가 없습니다.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</body>
+</html>
